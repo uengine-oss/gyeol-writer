@@ -2,6 +2,10 @@
 
 HWPX·HWP 문서를 열고 편집해 HWPX로 저장하는 데스크톱 워드프로세서. Electron + TypeScript + ProseMirror.
 
+![결 워드에서 연구개발계획서 양식(HWPX)을 연 화면](docs/screenshot.png)
+
+**[내려받기 (macOS · Windows)](https://github.com/uengine-oss/gyeol-writer/releases/latest)**
+
 ## 만든 방식 — 클린룸
 
 한컴오피스 한글(Mac 12.30)을 **코드를 열지 않고** 관찰해 기능 명세를 만들고, 공개 형식 문서를 기준으로 새로 구현했다.
