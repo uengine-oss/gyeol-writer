@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>결 워드</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="chrome">
+        <div class="toolbox" id="toolbox"></div>
+        <div class="formatbar" id="formatbar"></div>
+      </header>
+      <main class="workspace" id="workspace">
+        <div class="page-stack" id="page-stack">
+          <div class="sheets" id="sheets"></div>
+          <div id="editor"></div>
+        </div>
+      </main>
+      <footer class="statusbar" id="statusbar"></footer>
+    </div>
+    <div id="find-panel" class="find-panel" hidden></div>
+    <dialog id="dialog" class="dialog"></dialog>
+    <div id="popover" class="popover" hidden></div>
+    <div id="toast" class="toast" hidden></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+{
+  "name": "gyeol-writer",
+  "version": "0.2.0",
+  "description": "HWPX/HWP 호환 데스크톱 워드프로세서 (클린룸 구현)",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dist": "electron-vite build && electron-builder --mac --win",
+    "test:samples": "GYEOL_HWPX_SAMPLES=${GYEOL_HWPX_SAMPLES:?샘플 폴더} vitest run src/format",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:win": "electron-vite build && electron-builder --win"
+  },
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pako": "^2.0.4",
+    "electron": "^37.10.3",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "cfb": "^1.2.2",
+    "jszip": "^3.10.2",
+    "pako": "^3.0.2",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-dropcursor": "^1.8.4",
+    "prosemirror-gapcursor": "^1.4.1",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.12.2",
+    "prosemirror-view": "^1.42.6"
+  },
+  "productName": "Gyeol Writer",
+  "private": true,
+  "build": {
+    "appId": "org.uengine.gyeol",
+    "productName": "Gyeol Writer",
+    "copyright": "© 2026 uEngine",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**"
+    ],
+    "afterPack": "build/after-pack.cjs",
+    "fileAssociations": [
+      {
+        "ext": "hwpx",
+        "name": "HWPX 문서",
+        "description": "한글 문서(HWPX)",
+        "role": "Editor"
+      },
+      {
+        "ext": "hwp",
+        "name": "HWP 문서",
+        "description": "한글 문서(HWP)",
+        "role": "Viewer"
+      },
+      {
+        "ext": "hwtx",
+        "name": "HWPX 서식",
+        "description": "한글 서식 파일",
+        "role": "Viewer"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "extendInfo": {
+        "CFBundleDisplayName": "결 워드"
+      },
+      "artifactName": "GyeolWriter-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "결 워드 ${version}"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "GyeolWriter-${version}-win-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "결 워드",
+      "uninstallDisplayName": "결 워드 ${version}",
+      "unicode": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
+    }
+  },
+  "author": {
+    "name": "uEngine"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uengine-oss/gyeol-writer.git"
+  }
+}

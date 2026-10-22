@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+dist-v2/
+release/
+*.log
+.DS_Store
+# 화면 녹화·개인 문서는 올리지 않는다
+*.mov
+*.mp4
