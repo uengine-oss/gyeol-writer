@@ -219,7 +219,7 @@ export function createAgentPanel(host: AgentHost) {
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const m = MODES.find((x) => x.id === mode)!;
     bubble('user', `<div class="ai-tag">${m.label} · ${info.label}</div><div>${esc(instruction)}</div>`);
-    const el = bubble('agent busy', `<div class="ai-steps"></div><div class="ai-text"></div><div class="ai-status"><span class="spin"></span>${info.label}가 작업 중…</div>`);
+    const el = bubble('agent busy', `<div class="ai-steps"></div><div class="ai-text"></div><div class="ai-status"><span class="ai-spinner"></span>${info.label}가 작업 중…</div>`);
     if (target) view.dispatch(setAiTarget(view.state, target));
     input.value = '';
     const req = {
