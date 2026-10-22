@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
+import appIcon from '../../build/icon.png?asset';
 
 const isMac = process.platform === 'darwin';
 const windows = new Set<BrowserWindow>();
@@ -23,6 +24,8 @@ function createWindow(filePath?: string): BrowserWindow {
     minHeight: 600,
     title: '결 워드',
     backgroundColor: '#E9ECF1',
+    // 창·작업 표시줄 아이콘(윈도우·리눅스). 맥은 Dock 아이콘을 따로 지정한다
+    icon: appIcon,
     show: !process.env.GYEOL_CAPTURE,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -344,6 +347,8 @@ app.on('open-file', (e, p) => {
 });
 
 app.whenReady().then(() => {
+  // 개발 실행(electron .)에서도 Dock 에 결 워드 아이콘이 보이게
+  if (isMac) app.dock?.setIcon(appIcon);
   buildMenu();
   const args = process.argv.slice(app.isPackaged ? 1 : 2).filter((a) => /\.(hwpx|hwp|hwtx|owpml|txt)$/i.test(a));
   const files = [...pendingOpen, ...args, ...(process.env.GYEOL_OPEN ? [process.env.GYEOL_OPEN] : [])];

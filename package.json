@@ -1,6 +1,6 @@
 {
   "name": "gyeol-writer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "HWPX/HWP 호환 데스크톱 워드프로세서 (클린룸 구현)",
   "main": "./out/main/index.js",
   "scripts": {
