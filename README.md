@@ -6,13 +6,13 @@ HWPX·HWP 문서를 열고 편집해 HWPX로 저장하는 데스크톱 워드프
 
 **[내려받기 (macOS · Windows)](https://github.com/uengine-oss/gyeol-writer/releases/latest)**
 
-## AI 도우미 (0.3)
+## AI 도우미 (0.3.1)
 
 오른쪽 **AI 도우미** 창에서 이 컴퓨터에 설치된 [Claude Code](https://claude.com/claude-code)(`claude`) 또는 [Codex](https://github.com/openai/codex)(`codex`)를 불러 문서를 함께 쓴다. 따로 API 키를 넣지 않고, 각 에이전트에 로그인한 계정을 그대로 쓴다.
 
 ![AI 도우미가 선택한 막대 그래프를 고친 화면](docs/ai-agent.png)
 
-▶ **[시연 영상 (2분, 한국어 나레이션)](https://github.com/uengine-oss/gyeol-writer/releases/download/v0.3.0/gyeol-writer-ai-agent.mp4)**
+▶ **[시연 영상 (2분, 한국어 나레이션)](https://github.com/uengine-oss/gyeol-writer/releases/download/v0.3.1/gyeol-writer-ai-agent.mp4)**
 
 | 작업 | 대상 | 하는 일 |
 |---|---|---|
