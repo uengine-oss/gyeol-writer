@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstruc
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import appIcon from '../../build/icon.png?asset';
+import { registerAgentIpc } from './agent';
 
 const isMac = process.platform === 'darwin';
 const windows = new Set<BrowserWindow>();
@@ -50,6 +51,10 @@ function createWindow(filePath?: string): BrowserWindow {
       await win.webContents.executeJavaScript("globalThis.__gyeolNoFit = true; const pm = document.querySelector('.ProseMirror'); pm.style.removeProperty('--fls'); pm.style.removeProperty('--fws');");
     if (filePath) await sendOpen(win, filePath);
     if (process.env.GYEOL_CAPTURE) capture(win);
+  });
+  // 창에 파일을 떨어뜨려도 그 파일로 이동하지 않게(여는 일은 화면 쪽이 맡는다)
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win.webContents.getURL()) e.preventDefault();
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -133,12 +138,18 @@ function focused(): BrowserWindow | undefined {
 async function openDialog(win?: BrowserWindow) {
   const r = await dialog.showOpenDialog(win ?? focused()!, { properties: ['openFile', 'multiSelections'], filters: OPEN_FILTERS });
   if (r.canceled) return;
-  for (const p of r.filePaths) {
-    const w = win ?? focused();
-    // 현재 창이 빈 새 문서면 그 창에서 연다
-    const blank = w && (await w.webContents.executeJavaScript('window.__gyeolIsBlank && window.__gyeolIsBlank()'));
-    if (w && blank) await sendOpen(w, p);
+  await openPaths(r.filePaths, win);
+}
+
+/** 여러 문서 열기: 현재 창이 빈 새 문서면 첫 문서는 그 창에서, 나머지는 새 창에서 */
+async function openPaths(paths: string[], win?: BrowserWindow) {
+  const w = win ?? focused();
+  // 화면 쪽 열기는 비동기라, 한 번 쓴 창은 다시 빈 창으로 보지 않는다
+  let reuse = !!w && (await w.webContents.executeJavaScript('window.__gyeolIsBlank && window.__gyeolIsBlank()'));
+  for (const p of paths) {
+    if (w && reuse) await sendOpen(w, p);
     else createWindow(p);
+    reuse = false;
   }
 }
 
@@ -152,6 +163,7 @@ async function printPdf(win: BrowserWindow, opt: { widthIn: number; heightIn: nu
 }
 
 ipcMain.handle('file:open-dialog', (e) => openDialog(BrowserWindow.fromWebContents(e.sender) ?? undefined));
+ipcMain.handle('file:open-paths', (e, paths: string[]) => openPaths(paths, BrowserWindow.fromWebContents(e.sender) ?? undefined));
 
 ipcMain.handle('file:save', async (e, args: { path?: string; suggested: string; bytes: Uint8Array; saveAs?: boolean }) => {
   const win = BrowserWindow.fromWebContents(e.sender)!;
@@ -277,6 +289,7 @@ function buildMenu() {
       submenu: [
         item('표…', 'insertTable', 'CmdOrCtrl+Alt+T'),
         item('그림…', 'insertImage', 'CmdOrCtrl+Alt+I'),
+        item('그림 자르기…', 'cropImage'),
         { type: 'separator' },
         item('쪽 나누기', 'pageBreak', 'CmdOrCtrl+Enter'),
         item('줄 바꾸기', 'lineBreak', 'Shift+Enter'),
@@ -328,7 +341,7 @@ function buildMenu() {
     },
     {
       label: '도구',
-      submenu: [item('글자 수 세기…', 'wordCount')],
+      submenu: [item('AI 도우미', 'toggleAgent', 'CmdOrCtrl+J'), { type: 'separator' }, item('글자 수 세기…', 'wordCount')],
     },
     { role: 'windowMenu', label: '창' },
   ];
@@ -350,6 +363,7 @@ app.whenReady().then(() => {
   // 개발 실행(electron .)에서도 Dock 에 결 워드 아이콘이 보이게
   if (isMac) app.dock?.setIcon(appIcon);
   buildMenu();
+  registerAgentIpc();
   const args = process.argv.slice(app.isPackaged ? 1 : 2).filter((a) => /\.(hwpx|hwp|hwtx|owpml|txt)$/i.test(a));
   const files = [...pendingOpen, ...args, ...(process.env.GYEOL_OPEN ? [process.env.GYEOL_OPEN] : [])];
   pendingOpen = [];

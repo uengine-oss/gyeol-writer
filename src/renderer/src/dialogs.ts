@@ -1,4 +1,4 @@
-// 대화상자: 글자 모양, 문단 모양, 편집 용지, 표 만들기, 특수 문자, 문서 정보
+// 대화상자: 글자 모양, 문단 모양, 편집 용지, 표 만들기, 그림 자르기, 특수 문자, 문서 정보
 import type { CharProps, PageSetup, ParaProps } from '../../model/doc';
 import { MM } from '../../model/doc';
 import { fontStack } from '../../editor/schema';
@@ -267,6 +267,100 @@ export function tableDialog(): Promise<{ rows: number; cols: number } | null> {
     root.addEventListener('input', paint);
     paint();
   });
+}
+
+// ---------- 그림 자르기 ----------
+export interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** 그림 위에 자를 영역을 끌어서 고른다. 결과는 원본 픽셀 단위 */
+export function cropDialog(src: string, natW: number, natH: number): Promise<CropRect | null> {
+  // 미리보기 크기: 520×380 안에 맞춘다
+  const k = Math.min(520 / natW, 380 / natH, 1);
+  const vw = Math.round(natW * k);
+  const vh = Math.round(natH * k);
+  const handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((h) => `<span class="h ${h}" data-h="${h}"></span>`).join('');
+  const body = `
+    <div class="crop-wrap"><div class="crop-stage" style="width:${vw}px;height:${vh}px"><img src="${esc(src)}" draggable="false" alt=""><div class="crop-box" data-h="move">${handles}</div></div></div>
+    <div class="grid2">
+      <div class="row" style="grid-template-columns:40px 1fr"><span>너비</span><div class="unit-in"><input type="number" name="cw" min="1" max="${natW}"><span>px</span></div></div>
+      <div class="row" style="grid-template-columns:40px 1fr"><span>높이</span><div class="unit-in"><input type="number" name="ch" min="1" max="${natH}"><span>px</span></div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px"><span>모서리·변을 끌어 크기를, 안쪽을 끌어 위치를 바꿉니다.</span><button type="button" class="btn" data-reset>원래대로</button></div>`;
+  // 화면 좌표(미리보기 px)의 자를 영역
+  const r: CropRect = { x: 0, y: 0, w: vw, h: vh };
+  const MIN = 8;
+  return open(
+    '그림 자르기',
+    body,
+    () => {
+      const x = Math.round(r.x / k);
+      const y = Math.round(r.y / k);
+      return { x, y, w: Math.max(1, Math.min(natW - x, Math.round(r.w / k))), h: Math.max(1, Math.min(natH - y, Math.round(r.h / k))) };
+    },
+    '자르기',
+    (root) => {
+      const box = root.querySelector('.crop-box') as HTMLElement;
+      const stage = root.querySelector('.crop-stage') as HTMLElement;
+      const cw = root.querySelector('[name=cw]') as HTMLInputElement;
+      const ch = root.querySelector('[name=ch]') as HTMLInputElement;
+      const paint = () => {
+        Object.assign(box.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
+        cw.value = String(Math.round(r.w / k));
+        ch.value = String(Math.round(r.h / k));
+      };
+      stage.addEventListener('pointerdown', (e) => {
+        const t = e.target as HTMLElement;
+        const h = t.dataset.h;
+        if (!h) return;
+        e.preventDefault();
+        const sx = e.clientX;
+        const sy = e.clientY;
+        const o = { ...r };
+        const move = (ev: PointerEvent) => {
+          const dx = ev.clientX - sx;
+          const dy = ev.clientY - sy;
+          if (h === 'move') {
+            r.x = Math.min(Math.max(0, o.x + dx), vw - o.w);
+            r.y = Math.min(Math.max(0, o.y + dy), vh - o.h);
+          } else {
+            let { x, y } = o;
+            let x2 = o.x + o.w;
+            let y2 = o.y + o.h;
+            if (h.includes('w')) x = Math.min(Math.max(0, o.x + dx), x2 - MIN);
+            if (h.includes('e')) x2 = Math.max(Math.min(vw, x2 + dx), x + MIN);
+            if (h.includes('n')) y = Math.min(Math.max(0, o.y + dy), y2 - MIN);
+            if (h.includes('s')) y2 = Math.max(Math.min(vh, y2 + dy), y + MIN);
+            Object.assign(r, { x, y, w: x2 - x, h: y2 - y });
+          }
+          paint();
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      });
+      // 숫자로 크기 지정(왼쪽 위는 그대로 두고 그림 안으로 제한)
+      const typed = () => {
+        r.w = Math.max(MIN, Math.min(vw - r.x, (Number(cw.value) || 1) * k));
+        r.h = Math.max(MIN, Math.min(vh - r.y, (Number(ch.value) || 1) * k));
+        Object.assign(box.style, { width: `${r.w}px`, height: `${r.h}px` });
+      };
+      cw.addEventListener('change', typed);
+      ch.addEventListener('change', typed);
+      root.querySelector('[data-reset]')!.addEventListener('click', () => {
+        Object.assign(r, { x: 0, y: 0, w: vw, h: vh });
+        paint();
+      });
+      paint();
+    },
+  );
 }
 
 // ---------- 특수 문자 ----------

@@ -23,7 +23,7 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
-#app { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+#app { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); height: 100vh; }
 
 /* ---------- 도구 상자 ---------- */
 .chrome { background: var(--chrome); border-bottom: 1px solid var(--line); user-select: none; }
@@ -211,3 +211,90 @@ body {
 .ProseMirror .g-pua.boxed { display: inline-block; border: 1px solid currentColor; padding: 0 0.18em; line-height: 1.05; font-size: 0.82em; margin-right: 0.12em; vertical-align: 0.06em; }
 .ProseMirror .g-pua.unknown { outline: 1px dashed #c0c6d0; outline-offset: -1px; }
 @media print { .ProseMirror tr.page-gap-row td { background: transparent !important; } }
+
+/* 그림 자르기 */
+.crop-stage { position: relative; user-select: none; touch-action: none; background: repeating-conic-gradient(#e6e8ec 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
+.crop-stage img { display: block; width: 100%; height: 100%; }
+.crop-box { position: absolute; cursor: move; outline: 1px solid #fff; box-shadow: 0 0 0 1px var(--accent), 0 0 0 9999px rgba(20, 28, 45, 0.5); }
+.crop-wrap { padding: 6px; overflow: hidden; justify-self: center; border-radius: 6px; }
+.crop-box .h { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; background: #fff; border: 1px solid var(--accent); border-radius: 2px; }
+.crop-box .nw { left: 0; top: 0; cursor: nwse-resize; }
+.crop-box .n { left: 50%; top: 0; cursor: ns-resize; }
+.crop-box .ne { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-box .e { left: 100%; top: 50%; cursor: ew-resize; }
+.crop-box .se { left: 100%; top: 100%; cursor: nwse-resize; }
+.crop-box .s { left: 50%; top: 100%; cursor: ns-resize; }
+.crop-box .sw { left: 0; top: 100%; cursor: nesw-resize; }
+.crop-box .w { left: 0; top: 50%; cursor: ew-resize; }
+/* 문서 파일을 끌어 왔을 때 */
+body.drop-open #workspace { outline: 3px dashed var(--accent); outline-offset: -8px; }
+
+/* ---------- AI 도우미 ---------- */
+.body-row { display: flex; min-height: 0; }
+.body-row .workspace { flex: 1; min-width: 0; }
+.ai-panel { width: 360px; flex: none; display: flex; flex-direction: column; min-height: 0; background: #fbfcfd; border-left: 1px solid var(--line); }
+.ai-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 8px; }
+.ai-title { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #24304a; }
+.ai-title svg { color: #7c4dff; }
+.ai-x { border: 0; background: none; color: var(--muted); display: flex; padding: 2px; }
+.ai-engines { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; border-bottom: 1px solid var(--line); align-items: center; }
+.ai-engines button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 14px; background: #fff; font: 12.5px inherit; color: var(--text); }
+.ai-engines button.on { border-color: #7c4dff; background: #f3eeff; color: #5b2fd6; font-weight: 600; }
+.ai-engines button:disabled { opacity: 0.5; }
+.ai-engines .dot { width: 7px; height: 7px; border-radius: 50%; background: #c3c8d2; }
+.ai-engines .dot.ok { background: #22a06b; }
+.ai-engines .ai-rescan { width: 28px; padding: 0; justify-content: center; margin-left: auto; color: var(--muted); }
+.ai-missing { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.ai-missing code { font-size: 11px; background: var(--chrome-2); padding: 0 3px; border-radius: 3px; }
+.ai-log { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ai-empty { color: var(--text); font-size: 13px; line-height: 1.6; padding: 6px 2px; }
+.ai-empty p { margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.ai-msg { border-radius: 10px; padding: 9px 11px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.ai-msg.user { align-self: flex-end; max-width: 88%; background: var(--accent); color: #fff; }
+.ai-msg.agent { background: #fff; border: 1px solid var(--line); }
+.ai-tag { font-size: 11px; opacity: 0.8; margin-bottom: 2px; }
+.ai-steps { display: grid; gap: 3px; }
+.ai-steps:empty { display: none; }
+.ai-steps div { display: flex; gap: 5px; align-items: center; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-steps svg { width: 13px; height: 13px; flex: none; }
+.ai-steps span { overflow: hidden; text-overflow: ellipsis; }
+.ai-text { max-height: 260px; overflow-y: auto; }
+.ai-text:empty { display: none; }
+.ai-steps:not(:empty) + .ai-text:not(:empty) { margin-top: 6px; }
+.ai-thumb { display: block; max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 6px; background: repeating-conic-gradient(#eef0f3 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
+.ai-status { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--muted); white-space: normal; }
+.ai-status .ok { color: #1a7f52; font-weight: 600; }
+.ai-status .err { color: #c0392b; }
+.ai-undo { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; font: 12px inherit; color: var(--text); margin-left: auto; }
+.ai-undo svg { width: 14px; height: 14px; }
+.spin { width: 12px; height: 12px; border: 2px solid #d4c8fb; border-top-color: #7c4dff; border-radius: 50%; animation: ai-spin 0.8s linear infinite; }
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+.ai-compose { border-top: 1px solid var(--line); padding: 10px 12px 12px; display: grid; gap: 8px; background: #fff; }
+.ai-modes { display: flex; flex-wrap: wrap; gap: 4px; }
+.ai-modes button { height: 26px; padding: 0 9px; border: 1px solid var(--line); border-radius: 13px; background: #fff; font: 12px inherit; color: var(--muted); }
+.ai-modes button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.ai-target-line { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); min-height: 16px; overflow: hidden; white-space: nowrap; }
+.ai-target-line span { overflow: hidden; text-overflow: ellipsis; }
+.ai-target-line svg { width: 14px; height: 14px; flex: none; }
+.ai-target-line .warn { color: #b76e00; }
+.ai-suggest { display: flex; flex-wrap: wrap; gap: 4px; }
+.ai-suggest button { height: 24px; padding: 0 8px; border: 0; border-radius: 5px; background: var(--chrome-2); font: 11.5px inherit; color: #3b4458; }
+.ai-suggest button:hover { background: #e3e7ee; }
+.ai-input { position: relative; }
+.ai-input textarea { width: 100%; resize: none; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 44px 8px 10px; font: 13px/1.5 inherit; color: var(--text); }
+.ai-input textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.ai-send { position: absolute; right: 7px; bottom: 9px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+.ai-send.stop { background: #3b4458; }
+.ai-send svg { width: 17px; height: 17px; }
+body.ai-open .find-panel { right: 384px; }
+/* 본문에서 작업 중인 자리 */
+.ProseMirror .ai-target { background: rgba(124, 77, 255, 0.16); box-shadow: 0 2px 0 rgba(124, 77, 255, 0.5); }
+.ProseMirror .ai-target-node { outline: 2px dashed #7c4dff; outline-offset: 2px; animation: ai-pulse 1.2s ease-in-out infinite; }
+.ProseMirror .ai-chip { display: inline-block; margin: 0 4px; padding: 0 7px; border-radius: 9px; background: #7c4dff; color: #fff; font: 600 11px/18px -apple-system, "Apple SD Gothic Neo", sans-serif; text-indent: 0; letter-spacing: 0; vertical-align: 1px; user-select: none; animation: ai-pulse 1.2s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { opacity: 0.55; } }
+@media print { .ai-panel, .ai-chip { display: none !important; } }
+/* AI 도우미 단추는 도구 상자가 좁아도 오른쪽 끝에 늘 보이게 */
+.toolbox .group.ai { position: sticky; right: -10px; margin-left: auto; padding: 0 10px 0 8px; margin-right: -10px; border-left: 1px solid var(--line); border-right: 0; background: var(--chrome); }
+.toolbox .group.ai .tool svg { color: #7c4dff; }
+body.ai-open .toolbox .group.ai .tool { background: #f3eeff; border-color: #d4c8fb; }

@@ -4,7 +4,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
-import { EditorState, type Command, type Transaction } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection, type Command, type Transaction } from 'prosemirror-state';
 import {
   addColumnAfter,
   addColumnBefore,
@@ -53,8 +53,10 @@ import {
 } from '../../editor/commands';
 import { caretPage, geom, PAGE_GAP, paginationKey, paginationPlugin, repaginate, type PageGeom } from '../../editor/pagination';
 import { findKey, findPlugin, findStep, replaceAll, replaceCurrent, setQuery } from '../../editor/find';
-import { charShapeDialog, colorPopover, docInfoDialog, pageSetupDialog, paraShapeDialog, symbolDialog, tableDialog } from './dialogs';
+import { charShapeDialog, colorPopover, cropDialog, docInfoDialog, pageSetupDialog, paraShapeDialog, symbolDialog, tableDialog } from './dialogs';
 import { ICONS, LOGO } from './icons';
+import { createAgentPanel } from './agent';
+import { aiTargetPlugin } from '../../editor/aitarget';
 
 declare global {
   interface Window {
@@ -64,7 +66,8 @@ declare global {
     __gyeolPdfOptions: () => { widthIn: number; heightIn: number; landscape: boolean };
     __gyeolBeforePrint: () => void;
     __gyeolAfterPrint: () => void;
-    __gyeol: { view: EditorView; run: (id: string) => Promise<void>; open: (name: string, bytes: Uint8Array) => Promise<void>; serialize: () => Promise<Uint8Array>; report: () => { pages: number; starts: string[]; lines: [string, number][]; tops: [string, number, number][]; rows: number[][]; cell: [string, number][]; gaps: [number, string, string][] } };
+    __gyeolAgent: ReturnType<typeof createAgentPanel>;
+    __gyeol: { view: EditorView; run: (id: string) => Promise<void>; open: (name: string, bytes: Uint8Array) => Promise<void>; serialize: () => Promise<Uint8Array>; selectPara: (text: string, whole?: boolean) => boolean; selectImage: (nth?: number) => boolean; report: () => { pages: number; starts: string[]; lines: [string, number][]; tops: [string, number, number][]; rows: number[][]; cell: [string, number][]; gaps: [number, string, string][] } };
   }
 }
 
@@ -81,6 +84,8 @@ let zoom = 1;
 let pages = 1;
 let fonts: string[] = ['맑은 고딕', '함초롬바탕', '함초롬돋움', '바탕', '돋움', '굴림', '궁서', 'Apple SD Gothic Neo', 'AppleMyungjo', 'Nanum Gothic', 'Nanum Myeongjo', 'Noto Sans KR', 'Arial', 'Times New Roman'];
 let blank = true;
+// AI 도우미 창(아래에서 만든다)
+let agent: ReturnType<typeof createAgentPanel> | undefined;
 
 let g: PageGeom = geom(page);
 let printing = false;
@@ -114,6 +119,7 @@ function plugins() {
     columnResizing({ cellMinWidth: 24, View: BorderedTableView }),
     tableEditing(),
     findPlugin,
+    aiTargetPlugin,
     paginationPlugin(() => g, () => (printing ? 0 : PAGE_GAP), (n) => {
       if (n !== pages) {
         pages = n;
@@ -177,6 +183,7 @@ const view = new EditorView($('#editor'), {
     }
     syncToolbar();
     renderStatus();
+    agent?.sync();
   },
   handlePaste(v, e) {
     const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
@@ -184,8 +191,15 @@ const view = new EditorView($('#editor'), {
     insertImageFile(file);
     return true;
   },
+  handleDoubleClickOn(v, pos, node) {
+    if (node.type !== schema.nodes.image) return false;
+    v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, pos)));
+    cropSelectedImage();
+    return true;
+  },
   handleDrop(v, e) {
     const files = [...((e as DragEvent).dataTransfer?.files ?? [])];
+    if (openDroppedDocs(files)) return true;
     const img = files.find((f) => f.type.startsWith('image/'));
     if (img) {
       insertImageFile(img);
@@ -234,10 +248,11 @@ const TOOLS: [string, string, string][][] = [
   [['new', '새 문서', 'new'], ['open', '불러오기', 'open'], ['save', '저장하기', 'save']],
   [['cut', '오려 두기', 'cut'], ['copy', '복사하기', 'copy'], ['paste', '붙이기', 'paste']],
   [['undo', '되돌리기', 'undo'], ['redo', '다시 실행', 'redo']],
-  [['table', '표', 'insertTable'], ['image', '그림', 'insertImage'], ['pagebreak', '쪽 나누기', 'pageBreak'], ['symbol', '문자표', 'insertSymbol']],
+  [['table', '표', 'insertTable'], ['image', '그림', 'insertImage'], ['crop', '그림 자르기', 'cropImage'], ['pagebreak', '쪽 나누기', 'pageBreak'], ['symbol', '문자표', 'insertSymbol']],
   [['charshape', '글자 모양', 'charShape'], ['parashape', '문단 모양', 'paraShape'], ['page', '편집 용지', 'pageSetup']],
   [['find', '찾기', 'find'], ['info', '문서 정보', 'docInfo']],
   [['print', '인쇄', 'print'], ['pdf', 'PDF 저장', 'exportPdf']],
+  [['ai', 'AI 도우미', 'toggleAgent']],
 ];
 
 function buildToolbox() {
@@ -245,7 +260,7 @@ function buildToolbox() {
     `<div class="brand">${LOGO}<span>결 워드</span></div>` +
     TOOLS.map(
       (grp) =>
-        `<div class="group">${grp.map(([icon, label, id]) => `<button class="tool" data-cmd="${id}" title="${label}">${ICONS[icon]}<span>${label}</span></button>`).join('')}</div>`,
+        `<div class="group${grp[0][2] === 'toggleAgent' ? ' ai' : ''}">${grp.map(([icon, label, id]) => `<button class="tool" data-cmd="${id}" title="${label}">${ICONS[icon]}<span>${label}</span></button>`).join('')}</div>`,
     ).join('');
   $('#toolbox').addEventListener('mousedown', (e) => e.preventDefault());
   $('#toolbox').addEventListener('click', (e) => {
@@ -557,6 +572,8 @@ async function run(id: string, anchor?: HTMLElement) {
       input.onchange = () => input.files?.[0] && insertImageFile(input.files[0]);
       return input.click();
     }
+    case 'cropImage':
+      return cropSelectedImage();
     case 'pageBreak':
       return exec(pageBreak);
     case 'lineBreak':
@@ -621,6 +638,8 @@ async function run(id: string, anchor?: HTMLElement) {
       return setZoom(zoom - 0.1);
     case 'zoom100':
       return setZoom(1);
+    case 'toggleAgent':
+      return agent?.toggle();
     case 'zoomFit':
       return setZoom(($('#workspace').clientWidth - 48) / g.width);
   }
@@ -640,6 +659,79 @@ function insertImageFile(file: File) {
   };
   reader.readAsDataURL(file);
 }
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('그림을 읽을 수 없습니다.'));
+    img.src = src;
+  });
+}
+
+/** 선택한 그림을 잘라 원본 픽셀을 바꾼다(문서에 보이는 크기는 잘라 낸 비율만큼 줄어든다) */
+async function cropSelectedImage() {
+  const sel = view.state.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type !== schema.nodes.image) return toast('자를 그림을 먼저 선택하세요.');
+  const { from: pos, node } = sel;
+  let img: HTMLImageElement;
+  try {
+    img = await loadImage(node.attrs.src);
+  } catch (e) {
+    return alert((e as Error).message);
+  }
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  const r = await cropDialog(node.attrs.src, nw, nh);
+  view.focus();
+  if (!r || (r.x === 0 && r.y === 0 && r.w === nw && r.h === nh)) return;
+  const c = document.createElement('canvas');
+  c.width = r.w;
+  c.height = r.h;
+  c.getContext('2d')!.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  // JPEG 는 JPEG 로, 나머지(GIF·BMP·SVG 등)는 PNG 로 다시 담는다
+  const jpg = node.attrs.ext === 'jpg';
+  const attrs = {
+    ...node.attrs,
+    src: c.toDataURL(jpg ? 'image/jpeg' : 'image/png', 0.92),
+    ext: jpg ? 'jpg' : 'png',
+    width: Math.max(1, Math.round((node.attrs.width * r.w) / nw)),
+    height: Math.max(1, Math.round((node.attrs.height * r.h) / nh)),
+  };
+  const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs);
+  view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos)));
+}
+
+// ---------------- 끌어다 놓아 열기 ----------------
+const DOC_EXT = /\.(hwpx|hwp|hwtx|owpml|txt)$/i;
+
+/** 떨어뜨린 파일 중 문서가 있으면 연다(빈 창이면 이 창에서, 아니면 새 창에서) */
+function openDroppedDocs(files: File[]): boolean {
+  const paths = files.filter((f) => DOC_EXT.test(f.name)).map((f) => api.pathForFile(f)).filter(Boolean);
+  if (!paths.length) return false;
+  api.openPaths(paths);
+  return true;
+}
+
+const draggingFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+let dropTimer = 0;
+// 편집 영역 밖(도구 상자·여백)에 떨어뜨려도 열리게 하고, 창이 파일로 이동하지 않게 막는다
+document.addEventListener('dragover', (e) => {
+  if (!draggingFiles(e)) return;
+  e.preventDefault();
+  const doc = [...(e.dataTransfer?.items ?? [])].some((it) => it.kind === 'file' && !it.type.startsWith('image/'));
+  document.body.classList.toggle('drop-open', doc);
+  clearTimeout(dropTimer);
+  dropTimer = window.setTimeout(() => document.body.classList.remove('drop-open'), 150);
+});
+document.addEventListener('drop', (e) => {
+  document.body.classList.remove('drop-open');
+  if (!draggingFiles(e)) return;
+  // 편집 영역 안에서는 handleDrop 이 이미 처리했다
+  const handled = e.defaultPrevented;
+  e.preventDefault();
+  if (!handled) openDroppedDocs([...(e.dataTransfer?.files ?? [])]);
+});
 
 // ---------------- 찾기/바꾸기 ----------------
 function openFind(withReplace: boolean) {
@@ -851,6 +943,29 @@ window.__gyeol = {
   run: (id) => run(id),
   open: (name, bytes) => openFile({ name, path: '', bytes }),
   serialize: () => writeHwpx(pmToModel(view.state.doc, page, meta)),
+  // 검증·시연용: text 로 시작하는 문단을 찾아 선택(whole=문단 전체, 아니면 끝에 커서), 그림 선택
+  selectPara: (text, whole = true) => {
+    let hit = -1;
+    let size = 0;
+    view.state.doc.descendants((n, pos) => {
+      if (hit < 0 && n.type === schema.nodes.paragraph && n.textContent.startsWith(text)) [hit, size] = [pos, n.content.size];
+      return hit < 0;
+    });
+    if (hit < 0) return false;
+    view.focus();
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, whole ? hit + 1 : hit + 1 + size, hit + 1 + size)).scrollIntoView());
+    return true;
+  },
+  selectImage: (nth = 0) => {
+    const found: number[] = [];
+    view.state.doc.descendants((n, pos) => {
+      if (n.type === schema.nodes.image) found.push(pos);
+    });
+    if (found[nth] === undefined) return false;
+    view.focus();
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, found[nth])).scrollIntoView());
+    return true;
+  },
   // 검증용: 쪽 수와 각 쪽 첫 글자들
   report: () => {
     const ps = paginationKey.getState(view.state);
@@ -911,6 +1026,9 @@ window.__gyeol = {
     return { pages, starts: [textAt(0), ...(ps?.breaks ?? []).map(textAt)], lines, tops, rows, cell, gaps };
   },
 };
+
+agent = createAgentPanel({ view, textWidth: () => g.width - g.left - g.right, toast });
+window.__gyeolAgent = agent;
 
 buildToolbox();
 buildFormatbar();
