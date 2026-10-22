@@ -12,7 +12,7 @@ HWPX·HWP 문서를 열고 편집해 HWPX로 저장하는 데스크톱 워드프
 
 ![AI 도우미가 선택한 막대 그래프를 고친 화면](docs/ai-agent.png)
 
-▶ **[시연 영상 (2분, 한국어 나레이션)](https://github.com/uengine-oss/gyeol-writer/releases/download/v0.3.1/gyeol-writer-ai-agent.mp4)**
+▶ **[시연 영상 — YouTube](https://youtu.be/NtJ6VKU5mS0)** (2분, 한국어 나레이션) · [mp4 내려받기](https://github.com/uengine-oss/gyeol-writer/releases/download/v0.3.1/gyeol-writer-ai-agent.mp4) · [소개 페이지](https://www.uengine.org/contents/aitools.html#gyeol-writer)
 
 | 작업 | 대상 | 하는 일 |
 |---|---|---|
